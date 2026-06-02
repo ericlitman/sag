@@ -12,6 +12,7 @@ import (
 
 func TestSpeakCommand_FlagsBuildRequestAndMetrics(t *testing.T) {
 	t.Helper()
+	isolateRootCommand(t)
 
 	const voiceID = "abc1234567890123"
 
@@ -105,5 +106,59 @@ func TestSpeakCommand_FlagsBuildRequestAndMetrics(t *testing.T) {
 	stderr := read()
 	if !strings.Contains(stderr, "metrics: chars=") || !strings.Contains(stderr, "bytes=") || !strings.Contains(stderr, "dur=") {
 		t.Fatalf("expected metrics output, got %q", stderr)
+	}
+}
+
+func TestSpeakCommand_FishProviderBuildsRequest(t *testing.T) {
+	t.Helper()
+	isolateRootCommand(t)
+
+	const voiceID = "fish-sarah"
+	var got map[string]any
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/tts" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if auth := r.Header.Get("Authorization"); auth != "Bearer testkey" {
+			t.Fatalf("unexpected Authorization header: %q", auth)
+		}
+		if model := r.Header.Get("model"); model != "s2-pro" {
+			t.Fatalf("unexpected Fish model header: %q", model)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("fish-audio"))
+	}))
+	defer srv.Close()
+
+	tmp := t.TempDir()
+	outPath := tmp + "/out.mp3"
+
+	rootCmd.SetArgs([]string{
+		"--provider", "fish",
+		"--api-key", "testkey",
+		"--base-url", srv.URL,
+		"speak",
+		"--voice-id", voiceID,
+		"--stream=false",
+		"--play=false",
+		"--output", outPath,
+		"Hello Fish",
+	})
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("speak command failed: %v", err)
+	}
+	if _, err := os.Stat(outPath); err != nil {
+		t.Fatalf("expected output file to be written: %v", err)
+	}
+	if got["reference_id"] != voiceID || got["text"] != "Hello Fish" {
+		t.Fatalf("unexpected Fish request body: %+v", got)
+	}
+	if got["format"] != "mp3" || got["sample_rate"] != float64(44100) || got["mp3_bitrate"] != float64(128) {
+		t.Fatalf("unexpected Fish format body: %+v", got)
 	}
 }

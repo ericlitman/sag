@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"path"
 	"strings"
+
+	"github.com/steipete/sag/internal/tts"
 )
 
 // Client talks to the ElevenLabs HTTP API.
@@ -32,14 +34,7 @@ func NewClient(apiKey, baseURL string) *Client {
 }
 
 // Voice represents a voice entry returned by ElevenLabs.
-type Voice struct {
-	VoiceID     string            `json:"voice_id"`
-	Name        string            `json:"name"`
-	Category    string            `json:"category"`
-	Description string            `json:"description"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	PreviewURL  string            `json:"preview_url"`
-}
+type Voice = tts.Voice
 
 type listVoicesResponse struct {
 	Voices []Voice `json:"voices"`
@@ -184,24 +179,10 @@ func (c *Client) GetVoice(ctx context.Context, voiceID string) (Voice, error) {
 }
 
 // TTSRequest configures a text-to-speech request payload.
-type TTSRequest struct {
-	Text                   string         `json:"text"`
-	ModelID                string         `json:"model_id,omitempty"`
-	VoiceSettings          *VoiceSettings `json:"voice_settings,omitempty"`
-	OutputFormat           string         `json:"output_format,omitempty"`
-	Seed                   *uint32        `json:"seed,omitempty"`
-	ApplyTextNormalization string         `json:"apply_text_normalization,omitempty"`
-	LanguageCode           string         `json:"language_code,omitempty"`
-}
+type TTSRequest = tts.Request
 
 // VoiceSettings tunes synthesis parameters for a request.
-type VoiceSettings struct {
-	Stability       *float64 `json:"stability,omitempty"`
-	SimilarityBoost *float64 `json:"similarity_boost,omitempty"`
-	Style           *float64 `json:"style,omitempty"`
-	UseSpeakerBoost *bool    `json:"use_speaker_boost,omitempty"`
-	Speed           *float64 `json:"speed,omitempty"`
-}
+type VoiceSettings = tts.VoiceSettings
 
 // StreamTTS requests streaming audio for text-to-speech.
 func (c *Client) StreamTTS(ctx context.Context, voiceID string, payload TTSRequest, latency int) (io.ReadCloser, error) {

@@ -14,11 +14,15 @@ Required for any TTS or voice call. `sag --help`, `sag prompting`, and `sag --ve
 | Flag / variable | Notes |
 | --- | --- |
 | `--api-key` | Inline override. Avoid in shell history; prefer env or `--api-key-file`. |
-| `ELEVENLABS_API_KEY` | Primary env var. |
-| `SAG_API_KEY` | Accepted alias. |
+| `ELEVENLABS_API_KEY` | Primary env var for the default ElevenLabs provider. |
+| `FISH_AUDIO_API_KEY` | Primary env var for `--provider fish`. |
+| `FISH_API_KEY` | Fish Audio compatibility alias. |
+| `SAG_API_KEY` | Provider-neutral fallback alias. |
 | `--api-key-file <path>` | Read the key from a file. |
-| `ELEVENLABS_API_KEY_FILE` | Same as `--api-key-file`. |
-| `SAG_API_KEY_FILE` | Alias. |
+| `ELEVENLABS_API_KEY_FILE` | ElevenLabs key file. |
+| `FISH_AUDIO_API_KEY_FILE` | Fish Audio key file. |
+| `FISH_API_KEY_FILE` | Fish Audio compatibility key-file alias. |
+| `SAG_API_KEY_FILE` | Provider-neutral key-file fallback. |
 
 The file form is handy for agents and containers:
 
@@ -28,13 +32,29 @@ chmod 600 ~/.config/elevenlabs.key
 SAG_API_KEY_FILE=~/.config/elevenlabs.key sag voices --limit 3
 ```
 
+## Provider
+
+ElevenLabs is the default provider. Fish Audio can be selected per command or per shell:
+
+```bash
+sag --provider fish -v Sarah "Fish Audio speaking."
+export SAG_PROVIDER=fish
+```
+
+Provider-specific defaults:
+
+| Provider | Default base URL | Default model | Primary key env |
+| --- | --- | --- | --- |
+| `elevenlabs` | `https://api.elevenlabs.io` | `eleven_v3` | `ELEVENLABS_API_KEY` |
+| `fish` | `https://api.fish.audio` | `s2-pro` | `FISH_AUDIO_API_KEY` |
+
 ## Default voice
 
 When `--voice` / `--voice-id` is omitted, `sag` resolves in this order:
 
-1. `ELEVENLABS_VOICE_ID`
+1. Provider-specific voice env: `ELEVENLABS_VOICE_ID` or `FISH_AUDIO_VOICE_ID`.
 2. `SAG_VOICE_ID`
-3. The first voice returned by `/v1/voices` (logged on stderr so you notice).
+3. The first provider voice returned by the API (logged on stderr so you notice).
 
 ```bash
 export SAG_VOICE_ID=21m00Tcm4TlvDq8ikWAM
@@ -77,14 +97,15 @@ Pick a backend explicitly via `--player oto` or `SAG_PLAYER=oto`. See [Streaming
 
 ## API base URL
 
-Override the ElevenLabs endpoint when you’re routing through a proxy or talking to a regional/staging deployment:
+Override the provider endpoint when you’re routing through a proxy or talking to a regional/staging deployment:
 
 ```bash
 sag --base-url https://api.elevenlabs.io "Default."
+sag --provider fish --base-url https://api.fish.audio "Default."
 sag --base-url https://your-proxy.internal "Routed."
 ```
 
-The default is `https://api.elevenlabs.io`. There is no env var for this; it’s deliberate so the API target is always visible in the command line.
+Provider defaults are shown above. You can also set `ELEVENLABS_BASE_URL` or `FISH_AUDIO_BASE_URL` for a shell, but the flag wins.
 
 ## Voice metadata cache
 
@@ -107,6 +128,17 @@ export ELEVENLABS_API_KEY_FILE=~/.config/elevenlabs.key
 export SAG_VOICE_ID=21m00Tcm4TlvDq8ikWAM
 export SAG_TIMEOUT=5m
 export SAG_PLAYER=oto
+
+sag --no-play -o "$artifact" "$prompt"
+```
+
+For Fish Audio:
+
+```bash
+export SAG_PROVIDER=fish
+export FISH_AUDIO_API_KEY_FILE=~/.config/fish-audio.key
+export FISH_AUDIO_VOICE_ID=<voice-model-id>
+export SAG_TIMEOUT=2m
 
 sag --no-play -o "$artifact" "$prompt"
 ```

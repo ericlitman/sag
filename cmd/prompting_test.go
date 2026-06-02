@@ -6,6 +6,8 @@ import (
 )
 
 func TestPromptingCommandOutputsGuide(t *testing.T) {
+	isolateRootCommand(t)
+
 	restore, read := captureStdout(t)
 	defer restore()
 

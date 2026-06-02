@@ -1,11 +1,11 @@
 ---
 title: Voices
-description: "Discover ElevenLabs voices with name search, semantic queries, label filters, and audio previews."
+description: "Discover provider voices with name search, semantic queries, label filters, and audio previews."
 ---
 
 # Voices
 
-`sag voices` lists the voices available to your API key. The same engine drives `-v` resolution: anything you can find with `voices` you can speak with by name.
+`sag voices` lists the voices available to your API key. The same engine drives `-v` resolution: anything you can find with `voices` you can speak with by name. ElevenLabs is the default provider; Fish Audio uses voice models as voices.
 
 ## Quick listing
 
@@ -22,9 +22,10 @@ The output is plain TSV with a header (`VOICE ID`, `NAME`, `CATEGORY`), aligned 
 ```bash
 sag voices --search english --limit 20
 sag voices --search "narrator"
+sag --provider fish voices --search Sarah --limit 5
 ```
 
-`--search` first tries the ElevenLabs `/voices` endpoint with the search term. If the server doesn’t honour the query (older API versions, custom proxies), `sag` falls back to a client-side substring match against the full voice list — same UX, slightly more bandwidth.
+`--search` first tries a provider-side search: ElevenLabs `/voices`, or Fish Audio `/model?title=...`. If the server doesn’t honour the query (older API versions, custom proxies), `sag` falls back to a client-side substring match against the full voice list, same UX, slightly more bandwidth.
 
 ## Semantic query
 
@@ -40,7 +41,7 @@ If the metadata cache hasn’t been hydrated yet, `sag` fetches detail pages on 
 
 ## Label filters
 
-ElevenLabs voices carry structured labels (accent, age, use_case, gender, …). Filter by repeating `--label`:
+ElevenLabs voices carry structured labels (accent, age, use_case, gender, and more). Fish Audio voices expose available model state, visibility, tags, and languages as labels. Filter by repeating `--label`:
 
 ```bash
 sag voices --label accent=british --limit 20
@@ -60,6 +61,8 @@ sag voices --label accent=irish --try
 ```
 
 Previews are streamed via the same player backend as `speak` (`--player auto|afplay|oto`, see [Streaming & playback](streaming.md)). Failed previews don’t abort the loop — sag logs and continues.
+
+Fish Audio catalog entries do not always expose preview URLs, so `--try` may report `preview URL unavailable`. Use `sag --provider fish -v <name-or-id> "short preview text"` for a live preview when a Fish API key is configured.
 
 ## Combining with `speak`
 

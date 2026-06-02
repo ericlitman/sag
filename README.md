@@ -1,4 +1,4 @@
-# sag 🗣️ — “Mac-style speech with ElevenLabs”
+# sag 🗣️ — “Mac-style speech with ElevenLabs or Fish Audio”
 
 One-liner TTS that works like `say`: stream to speakers by default, list voices, or save audio files.
 
@@ -24,9 +24,10 @@ sudo apt install build-essential pkg-config libasound2-dev
 ```
 
 ## Configuration
-- `ELEVENLABS_API_KEY` (required)
-- `--api-key-file` or `ELEVENLABS_API_KEY_FILE`/`SAG_API_KEY_FILE` to load the key from a file
-- Optional defaults: `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`
+- ElevenLabs is the default provider: set `ELEVENLABS_API_KEY`.
+- Fish Audio: pass `--provider fish` or set `SAG_PROVIDER=fish`, then set `FISH_AUDIO_API_KEY`.
+- `--api-key-file`, provider-specific key file env vars, or `SAG_API_KEY_FILE` can load the key from a file.
+- Optional defaults: `ELEVENLABS_VOICE_ID`, `FISH_AUDIO_VOICE_ID`, or `SAG_VOICE_ID`.
 
 ## Usage
 
@@ -35,7 +36,7 @@ Features:
 - Streaming playback to speakers with optional file output.
 - Voice discovery via `sag voices` and `-v ?`.
 - Speed/rate controls, latency tiers, and format inference from output extension.
-- Model selection via `--model-id` (defaults to `eleven_v3`; use `eleven_multilingual_v2` for a stable baseline).
+- Model selection via `--model-id` (ElevenLabs defaults to `eleven_v3`; Fish Audio defaults to `s2-pro`).
 
 Speak (streams audio):
 ```bash
@@ -61,9 +62,11 @@ sag speak -v Roger --stream --latency-tier 3 "Faster start"
 sag speak -v Roger --speed 1.2 "Talk a bit faster"
 sag speak -v Roger --model-id eleven_multilingual_v2 "Use stable v2 baseline"
 sag speak -v Roger --output out.wav --format pcm_44100 "Wave output"
+FISH_AUDIO_API_KEY_FILE=~/.config/fish-audio.key sag --provider fish -v Sarah "Fish Audio voice."
 ```
 
 Key flags (subset):
+- `--provider` `elevenlabs|fish` (default: `elevenlabs`; also `SAG_PROVIDER`)
 - `-v, --voice` voice name or ID (`?` to list)
 - `--api-key-file` read API key from a file
 - `-r, --rate` words per minute (maps to ElevenLabs speed; default 175)
@@ -105,14 +108,16 @@ Highlights:
 
 ## Models / engines
 
-`sag` supports any ElevenLabs `model_id` via `--model-id` (we pass it through). Practical defaults + common IDs:
+`sag` supports ElevenLabs and Fish Audio model IDs via `--model-id` (we pass them through). Practical defaults + common IDs:
 
-| Engine | `--model-id` | Prompting style | Best for |
+| Provider / engine | `--model-id` | Prompting style | Best for |
 |---|---|---|---|
-| v3 (alpha) | `eleven_v3` (default) | Audio tags like `[whispers]`, `[short pause]` (no SSML `<break>`) | Most expressive / “acting” |
-| v2 (stable) | `eleven_multilingual_v2` | SSML `<break>` supported | Reliable baseline, simple prompts |
-| v2.5 Flash | `eleven_flash_v2_5` | SSML `<break>` supported | Ultra-low latency (~75ms) + 50% lower price per character |
-| v2.5 Turbo | `eleven_turbo_v2_5` | SSML `<break>` supported | Low latency (~250–300ms) + 50% lower price per character |
+| ElevenLabs v3 (alpha) | `eleven_v3` (default) | Audio tags like `[whispers]`, `[short pause]` (no SSML `<break>`) | Most expressive / “acting” |
+| ElevenLabs v2 (stable) | `eleven_multilingual_v2` | SSML `<break>` supported | Reliable baseline, simple prompts |
+| ElevenLabs v2.5 Flash | `eleven_flash_v2_5` | SSML `<break>` supported | Ultra-low latency (~75ms) + 50% lower price per character |
+| ElevenLabs v2.5 Turbo | `eleven_turbo_v2_5` | SSML `<break>` supported | Low latency (~250–300ms) + 50% lower price per character |
+| Fish Audio S2 Pro | `s2-pro` (Fish default) | Plain text, speed, seed, normalize, and output format controls | Alternate provider, agent status cues |
+| Fish Audio S1 | `s1` | Plain text, speed, seed, normalize, and output format controls | Legacy Fish model compatibility |
 
 Notes:
 - SSML `<break>` works on v2/v2.5, not v3. Use pause tags on v3 instead.
@@ -149,6 +154,6 @@ ffprobe -v quiet -show_entries format=duration -of csv=p=0 long.mp3
   - Build: `go build ./cmd/sag`
 
 ## Limitations
-- ElevenLabs account and API key required.
+- ElevenLabs or Fish Audio account and API key required for synthesis.
 - Voice defaults to first available if not provided.
 - Non-mac platforms: playback still works via `go-mp3` + `oto`, but device selection flags are no-ops.
