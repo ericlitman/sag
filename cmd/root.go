@@ -12,6 +12,7 @@ type rootConfig struct {
 	APIKey     string
 	APIKeyFile string
 	BaseURL    string
+	Provider   string
 }
 
 var (
@@ -19,8 +20,8 @@ var (
 	versionFlag bool
 	rootCmd     = &cobra.Command{
 		Use:     "sag",
-		Short:   "🗣️ ElevenLabs speech, mac-style ease",
-		Long:    "Command-line ElevenLabs TTS with macOS playback. Call it like macOS 'say': if you skip the subcommand, text args are passed to 'speak' (e.g. `sag \"Hello\"`).\n\nTip: run `sag prompting` for model-specific prompting tips.\nModels: `eleven_v3` (default), `eleven_multilingual_v2` (stable), `eleven_flash_v2_5` (fast/cheap), `eleven_turbo_v2_5` (balanced).",
+		Short:   "🗣️ Speech, mac-style ease",
+		Long:    "Command-line TTS with macOS playback. ElevenLabs is the default provider, and Fish Audio is available via --provider fish. Call it like macOS 'say': if you skip the subcommand, text args are passed to 'speak' (e.g. `sag \"Hello\"`).\n\nTip: run `sag prompting` for model-specific prompting tips.\nModels: ElevenLabs defaults to `eleven_v3`; Fish Audio defaults to `s2-pro`.",
 		Example: "  sag \"Hi Peter\"\n  echo 'piped input' | sag\n  sag speak -v Roger --rate 200 \"Faster speech\"\n  sag prompting",
 		Version: "0.3.0",
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
@@ -28,7 +29,7 @@ var (
 				fmt.Println(cmd.Root().Name(), cmd.Root().Version)
 				os.Exit(0)
 			}
-			return nil
+			return applyProviderEnv(cmd)
 		},
 	}
 )
@@ -43,9 +44,11 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfg.APIKey, "api-key", "", "ElevenLabs API key (or ELEVENLABS_API_KEY)")
-	rootCmd.PersistentFlags().StringVar(&cfg.APIKeyFile, "api-key-file", "", "Read ElevenLabs API key from file (or ELEVENLABS_API_KEY_FILE)")
-	rootCmd.PersistentFlags().StringVar(&cfg.BaseURL, "base-url", "https://api.elevenlabs.io", "Override ElevenLabs API base URL")
+	cfg.Provider = providerElevenLabs
+	rootCmd.PersistentFlags().StringVar(&cfg.Provider, "provider", cfg.Provider, "TTS provider: elevenlabs or fish (SAG_PROVIDER)")
+	rootCmd.PersistentFlags().StringVar(&cfg.APIKey, "api-key", "", "Provider API key (or ELEVENLABS_API_KEY/FISH_AUDIO_API_KEY)")
+	rootCmd.PersistentFlags().StringVar(&cfg.APIKeyFile, "api-key-file", "", "Read provider API key from file")
+	rootCmd.PersistentFlags().StringVar(&cfg.BaseURL, "base-url", "", "Override provider API base URL")
 	rootCmd.PersistentFlags().BoolVarP(&versionFlag, "version", "V", false, "Print version and exit")
 }
 
@@ -67,11 +70,42 @@ func maybeDefaultToSpeak() {
 		}
 	}
 
-	first := os.Args[1]
+	args := os.Args[1:]
+	insertAt := firstNonRootFlagIndex(args)
+	if insertAt >= len(args) {
+		if !isStdinTTY() {
+			os.Args = append(os.Args, "speak")
+		}
+		return
+	}
+	first := args[insertAt]
 	if isKnownSubcommand(first) || isCobraBuiltin(first) || first == "-h" || first == "--help" {
 		return
 	}
-	os.Args = append([]string{os.Args[0], "speak"}, os.Args[1:]...)
+	withSpeak := make([]string, 0, len(args)+2)
+	withSpeak = append(withSpeak, os.Args[0])
+	withSpeak = append(withSpeak, args[:insertAt]...)
+	withSpeak = append(withSpeak, "speak")
+	withSpeak = append(withSpeak, args[insertAt:]...)
+	os.Args = withSpeak
+}
+
+func firstNonRootFlagIndex(args []string) int {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "-V" || arg == "--version" || arg == "-h" || arg == "--help":
+			return len(args)
+		case strings.HasPrefix(arg, "--provider=") || strings.HasPrefix(arg, "--api-key=") || strings.HasPrefix(arg, "--api-key-file=") || strings.HasPrefix(arg, "--base-url="):
+			continue
+		case arg == "--provider" || arg == "--api-key" || arg == "--api-key-file" || arg == "--base-url":
+			i++
+			continue
+		default:
+			return i
+		}
+	}
+	return len(args)
 }
 
 func isCobraBuiltin(name string) bool {

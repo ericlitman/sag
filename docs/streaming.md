@@ -43,7 +43,7 @@ For everything else, keep streaming on. Latency wins are real, especially with v
 
 ## Latency tiers
 
-`--latency-tier 0..4` is forwarded as the `optimize_streaming_latency` parameter. `0` is the model default; higher values trade fidelity for first-byte time.
+For ElevenLabs, `--latency-tier 0..4` is forwarded as the `optimize_streaming_latency` parameter. `0` is the model default; higher values trade fidelity for first-byte time. Fish Audio exposes a smaller latency surface, so any positive tier selects its `balanced` generation mode.
 
 ```bash
 sag --latency-tier 3 "Faster start, lossier mid-frequencies."

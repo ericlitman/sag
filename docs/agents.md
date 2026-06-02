@@ -31,6 +31,13 @@ export ELEVENLABS_API_KEY_FILE=/run/secrets/elevenlabs.key
 
 Either form is fine. The file form is friendlier for Docker secrets and Kubernetes mounts.
 
+For Fish Audio, select the provider and use the provider-specific secret:
+
+```bash
+export SAG_PROVIDER=fish
+export FISH_AUDIO_API_KEY_FILE=/run/secrets/fish-audio.key
+```
+
 ## Pin a voice
 
 Resolve the voice once and pass the ID, not the name:
@@ -41,6 +48,13 @@ sag --voice-id "$voice_id" --no-play -o "$artifact" "$prompt"
 ```
 
 Names can be ambiguous; IDs are stable and don’t require a list call on every invocation. Cache the ID (env var, config file, agent state) and refresh only when the voice changes.
+
+Fish Audio voice models use the same pattern:
+
+```bash
+voice_id=$(sag --provider fish voices --search Sarah --limit 1 | awk 'NR==2 {print $1}')
+SAG_PROVIDER=fish FISH_AUDIO_VOICE_ID="$voice_id" sag --no-play -o "$artifact" "$prompt"
+```
 
 ## Time it
 
@@ -55,6 +69,7 @@ Pick the timeout based on the model:
 - **v3** (`eleven_v3`): 3–5 minutes for paragraph-length prompts.
 - **v2** (`eleven_multilingual_v2`): 1–2 minutes is usually plenty.
 - **v2.5 Flash/Turbo**: 30–60 seconds is often enough.
+- **Fish S2 Pro** (`s2-pro`): 30–90 seconds is usually enough for status-length prompts.
 
 See [Timeouts](timeouts.md).
 
@@ -77,6 +92,35 @@ metrics: chars=812 bytes=325120 model=eleven_v3 voice=21m00Tcm4TlvDq8ikWAM strea
 ```
 
 You can `grep -F 'metrics:'` the stderr stream and dump the line into your run’s metadata.
+
+## Opt-in status channel
+
+For development agents, voice should be a quiet escalation channel, not a narrator. Keep it opt-in and reserve it for interruption-worthy events:
+
+- user input is needed
+- a long run completed
+- the agent is blocked or stalled
+- CI, review, or deploy finished
+- a session report was published
+
+Recommended wrapper shape:
+
+```bash
+voice_status() {
+  test "${SAG_VOICE_STATUS:-0}" = "1" || return 0
+  test -n "${FISH_AUDIO_API_KEY_FILE:-${FISH_AUDIO_API_KEY:-}}" || return 0
+  SAG_PROVIDER=fish sag --no-play=false --voice "${SAG_STATUS_VOICE:-Sarah}" --timeout 90s "$1"
+}
+
+voice_status "Sag status: review is complete and the report is published."
+```
+
+Rules for spoken text:
+
+- Keep it under one sentence.
+- Never speak secrets, private message bodies, raw logs, diffs, or credential paths.
+- Prefer state over detail: "blocked on user input" beats reading the error.
+- Degrade silently when disabled or unconfigured, and keep Slack or text status as the durable channel.
 
 ## Container hints
 

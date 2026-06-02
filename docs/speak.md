@@ -45,9 +45,9 @@ sag "Inline string spanning multiple words"
 `-v/--voice` accepts a name **or** an ID. `--voice-id` forces the value to be treated as an ID even if it looks like a name. Resolution order:
 
 1. Flag value (`-v` or `--voice-id`).
-2. `ELEVENLABS_VOICE_ID` env.
+2. Provider-specific voice env: `ELEVENLABS_VOICE_ID` or `FISH_AUDIO_VOICE_ID`.
 3. `SAG_VOICE_ID` env.
-4. First voice from `/v1/voices` (warning printed to stderr).
+4. First provider voice from the API (warning printed to stderr).
 
 Pass `?` to print the voice table and exit:
 
@@ -57,9 +57,17 @@ sag -v ?
 
 Name lookup is case-insensitive, with exact matches preferred over substring matches. If multiple voices share a name, sag picks the first hit deterministically and logs the choice.
 
+Fish Audio uses voice model IDs as `reference_id` values. You can discover them with:
+
+```bash
+sag --provider fish voices --search Sarah --limit 5
+sag --provider fish -v Sarah "Resolved by name."
+sag --provider fish --voice-id <fish-model-id> "Pinned by ID."
+```
+
 ## Streaming vs. non-streaming
 
-Streaming is the default. Audio plays as bytes arrive over `POST /v1/text-to-speech/{voice}/stream`. With `--no-stream`, `sag` falls back to `POST /v1/text-to-speech/{voice}`, which returns the entire payload before playback starts (useful for tests or when a downstream tool needs the full file before any byte hits the speakers).
+Streaming is the default. For ElevenLabs, audio plays as bytes arrive over `POST /v1/text-to-speech/{voice}/stream`. With `--no-stream`, `sag` falls back to `POST /v1/text-to-speech/{voice}`, which returns the entire payload before playback starts. Fish Audio uses `POST /v1/tts` for both modes; `--stream` still lets playback or file writing begin as the response body arrives.
 
 ```bash
 sag --stream "Default."
@@ -73,7 +81,7 @@ See [Streaming & playback](streaming.md) for the trade-offs.
 
 | Flag | Range | Default | Notes |
 | --- | --- | --- | --- |
-| `--speed` | 0.5–2.0 | 1.0 | Direct ElevenLabs multiplier. |
+| `--speed` | 0.5–2.0 | 1.0 | Direct provider speed multiplier. |
 | `-r/--rate` | words-per-minute | 175 (`say` default) | Mapped to `--speed` as `wpm/175`. |
 
 `-r` overrides `--speed` when both are set. The mapped speed must still fall within 0.5–2.0; rates that produce values outside the range error out clearly.
@@ -88,6 +96,8 @@ See [Streaming & playback](streaming.md) for the trade-offs.
 | `--speaker-boost` / `--no-speaker-boost` | toggle | Clarity boost; supported only on some models. |
 
 Sliders are only sent when explicitly set (`flag.Changed`). That keeps server-side defaults intact when you don’t care.
+
+Fish Audio accepts the shared speed, seed, normalize, model, and output controls. ElevenLabs-specific controls such as stability, similarity, style, speaker boost, and `--lang` are harmlessly ignored by Fish Audio.
 
 ## Request controls
 

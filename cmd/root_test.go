@@ -80,6 +80,65 @@ func TestMaybeDefaultToSpeak_DefaultsToSpeak(t *testing.T) {
 	}
 }
 
+func TestMaybeDefaultToSpeak_RootFlagBeforeSubcommand(t *testing.T) {
+	defer keepArgs(t)()
+	os.Args = []string{"sag", "--provider", "fish", "voices", "--search", "Sarah"}
+	maybeDefaultToSpeak()
+	want := []string{"sag", "--provider", "fish", "voices", "--search", "Sarah"}
+	if len(os.Args) != len(want) {
+		t.Fatalf("args length mismatch: got %v want %v", os.Args, want)
+	}
+	for i := range want {
+		if os.Args[i] != want[i] {
+			t.Fatalf("args mismatch at %d: got %q want %q (full %v)", i, os.Args[i], want[i], os.Args)
+		}
+	}
+}
+
+func TestMaybeDefaultToSpeak_RootFlagBeforeShortcutText(t *testing.T) {
+	defer keepArgs(t)()
+	os.Args = []string{"sag", "--provider=fish", "-v", "Sarah", "Hello"}
+	maybeDefaultToSpeak()
+	want := []string{"sag", "--provider=fish", "speak", "-v", "Sarah", "Hello"}
+	if len(os.Args) != len(want) {
+		t.Fatalf("args length mismatch: got %v want %v", os.Args, want)
+	}
+	for i := range want {
+		if os.Args[i] != want[i] {
+			t.Fatalf("args mismatch at %d: got %q want %q (full %v)", i, os.Args[i], want[i], os.Args)
+		}
+	}
+}
+
+func TestMaybeDefaultToSpeak_RootFlagsWithPipedStdin(t *testing.T) {
+	defer keepArgs(t)()
+
+	origStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdin = r
+	defer func() {
+		os.Stdin = origStdin
+		_ = w.Close()
+		_ = r.Close()
+	}()
+
+	os.Args = []string{"sag", "--provider", "fish"}
+	maybeDefaultToSpeak()
+
+	want := []string{"sag", "--provider", "fish", "speak"}
+	if len(os.Args) != len(want) {
+		t.Fatalf("args length mismatch: got %v want %v", os.Args, want)
+	}
+	for i := range want {
+		if os.Args[i] != want[i] {
+			t.Fatalf("args mismatch at %d: got %q want %q (full %v)", i, os.Args[i], want[i], os.Args)
+		}
+	}
+}
+
 func TestMaybeDefaultToSpeak_StripsLeadingDoubleDash(t *testing.T) {
 	t.Run("help after sentinel", func(t *testing.T) {
 		defer keepArgs(t)()

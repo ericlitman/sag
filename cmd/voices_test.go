@@ -13,6 +13,8 @@ import (
 )
 
 func TestVoicesCommand(t *testing.T) {
+	isolateRootCommand(t)
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/voices" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
@@ -41,8 +43,6 @@ func TestVoicesCommand(t *testing.T) {
 		t.Fatalf("expected table output, got %q", out)
 	}
 
-	// reset args to avoid polluting other tests
-	rootCmd.SetArgs(nil)
 	_ = os.Unsetenv("ELEVENLABS_API_KEY")
 }
 
@@ -63,58 +63,21 @@ func TestFilterVoicesByName(t *testing.T) {
 }
 
 func TestVoicesCommandTryRequiresFilter(t *testing.T) {
+	isolateRootCommand(t)
+
 	cfg.APIKey = "key"
 	cfg.BaseURL = "http://example.invalid"
-	t.Cleanup(func() {
-		cfg.APIKey = ""
-		cfg.BaseURL = ""
-	})
-
-	voicesCmd, _, err := rootCmd.Find([]string{"voices"})
-	if err != nil {
-		t.Fatalf("find voices command: %v", err)
-	}
-	for _, name := range []string{"limit", "search", "query", "label", "try"} {
-		flag := voicesCmd.Flags().Lookup(name)
-		if flag == nil {
-			t.Fatalf("missing %s flag", name)
-		}
-		switch name {
-		case "limit":
-			if err := flag.Value.Set("100"); err != nil {
-				t.Fatalf("reset limit: %v", err)
-			}
-		case "search":
-			if err := flag.Value.Set(""); err != nil {
-				t.Fatalf("reset search: %v", err)
-			}
-		case "query":
-			if err := flag.Value.Set(""); err != nil {
-				t.Fatalf("reset query: %v", err)
-			}
-		case "label":
-			if err := flag.Value.Set(""); err != nil {
-				t.Fatalf("reset label: %v", err)
-			}
-		case "try":
-			if err := flag.Value.Set("false"); err != nil {
-				t.Fatalf("reset try: %v", err)
-			}
-		}
-		flag.Changed = false
-	}
 
 	buf := &bytes.Buffer{}
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
 	rootCmd.SetArgs([]string{"voices", "--try"})
 
-	err = rootCmd.Execute()
+	err := rootCmd.Execute()
 	if err == nil || !strings.Contains(err.Error(), "--try requires") {
 		t.Fatalf("expected --try requires error, got %v", err)
 	}
 
-	rootCmd.SetArgs(nil)
 }
 
 func TestParseLabelFilters(t *testing.T) {
