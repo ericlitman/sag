@@ -15,7 +15,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.x'
+          go-version: '1.26.10'
           check-latest: true
 
       - name: Install system dependencies (audio)
@@ -36,7 +36,7 @@ jobs:
       - name: Lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.7.2
+          version: v2.15.0
           args: --timeout=3m
 
       - name: Test
